@@ -1,0 +1,96 @@
+### mysql命令行测试
+
+##### 基本命令
+
+```mysql
+#查询当前事务的自动提交机制
+show variables like 'autocommit';
+#设置事务手动提交
+set autocommit = 0;
+#查询事务的隔离级别
+select @@transaction_isolation;
+#设置当前会话的事务隔离级别
+set session transaction isolation level read uncommitted | read committed | repeatable read;
+```
+
+##### 测试表与表数据
+
+```mysql
+CREATE TABLE `user` (
+  `id` bigint(20) NOT NULL,
+  `age` int(11) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+insert into user values (1, 1, 'foo');
+insert into user values (2, 2, 'bar');
+```
+
+##### Prerequisite(前提)
+
+```markdown
+- 开启两个终端界面，分别登陆进mysql
+- terminal one
+	- set autocommit = 0;
+- terminal two
+	- set autocommit = 0;
+```
+
+##### 测试read uncommitted
+
+```mysql
+# 事务一
+set session transaction isolation level read uncommitted
+result1 = select * from user;(见图一)
+# 事务二
+update user set age = 3 where id = 1;
+# 事务一
+result2 = select * from user;
+
+#结论
+result1 != result2 出现脏读
+- 事务一 读取到 事务二 未提交的数据
+```
+
+- 图一![图一](http://q8vcyvt67.bkt.clouddn.com//微信截图_20200509114740.png)
+
+##### 测试 read committed
+
+```mysql
+# 事务一
+set session transaction isolation level read committed
+result1 = select * from user;
+# 事务二
+update user set age = 4 where id = 1;
+commit;
+# 事务一 
+result2 = select * from user;
+
+
+#结论
+result1 != result2 出现幻读
+- 事务一 读取到 事务二 已提交的数据
+```
+
+##### 测试 repeatable read
+
+```mysql
+# 事务一
+set session transaction isolation level repeatable read
+result1 = select * from user;
+# 事务二
+update user set age = 4 where id = 1;
+commit;
+# 事务一 
+result2 = select * from user;
+
+
+#结论
+result1 == result2 可重复读
+- 事务一在读到一条数据之后，此时事务一对该数据进行了修改并提交，那么事务一再读该数据，读到的还是原来的内容。
+#原理【MVCC多版本并发控制】
+```
+
+
+
